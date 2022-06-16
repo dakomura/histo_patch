@@ -1,23 +1,21 @@
-************************
+**************************************************************
 histo_patch : Patch extraction library for Whole Slide Images
-************************
+**************************************************************
 
 Overview
 ==============
-histo_patch is a 
-
-
+histo_patch is a python library to extract patches from annotated region in WSI files (Hamamatsu .ndpi or Aperio .svs).
+Hamamatsu .ndpa and QuPath .geojson annotation files are supported. 
 
 Installation
 =========================
-
 The package can be installed with ``pip``:
 
 .. code:: console
 
    $ pip install histo_patch
 
-To import histo_patch in your script, simply run below:
+To run histo_patch, simply run below from console:
 
 .. code:: console
 
@@ -35,4 +33,3 @@ Recommended Environment
 * OS
    * Linux
    * Mac
-

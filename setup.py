@@ -16,24 +16,17 @@ VERSION = histo_patch.__version__
 PYTHON_REQUIRES = ">=3.6"
 
 INSTALL_REQUIRES = [
-    'matplotlib>=3.3.4',
-    'seaborn>=0.11.0',
+    'tifffile >=2022.5.4',
     'numpy >=1.20.3',
-    'pandas>=1.2.4',
-    'matplotlib>=3.3.4',
-    'scipy>=1.6.3',
-    'scikit-learn>=0.24.2',
+    'tripy >=1.0.0',
+    'pyclipper >=1.3.0',
+    'opencv-python >= 4.6.0',
+    'zarr >=2.11.3',
+    'imagecodecs >=2022.2.22',
 ]
 
-EXTRAS_REQUIRE = {
-    'tutorial': [
-        'mlxtend>=0.18.0',
-        'xgboost>=1.4.2',
-    ]
-}
-
 PACKAGES = [
-    'seaborn_analyzer'
+    'histo_patch'
 ]
 
 CLASSIFIERS = [
@@ -49,14 +42,10 @@ CLASSIFIERS = [
     'Topic :: Scientific/Engineering :: Visualization',
     'Topic :: Scientific/Engineering :: Artificial Intelligence',
     'Topic :: Multimedia :: Graphics',
-    'Framework :: Matplotlib',
 ]
 
-with open('README.rst', 'r') as fp:
-    readme = fp.read()
-with open('CONTACT.txt', 'r') as fp:
-    contacts = fp.read()
-long_description = readme + '\n\n' + contacts
+with open('README.rst', 'r', encoding='utf-8') as fp:
+    long_description = fp.read()
 
 setup(name=NAME,
       author=AUTHOR,
@@ -65,4 +54,12 @@ setup(name=NAME,
       maintainer_email=AUTHOR_EMAIL,
       description=DESCRIPTION,
       long_description=long_description,
-      license=
+      license=LICENSE,
+      url=URL,
+      version=VERSION,
+      download_url=DOWNLOAD_URL,
+      python_requires=PYTHON_REQUIRES,
+      install_requires=INSTALL_REQUIRES,
+      packages=PACKAGES,
+      classifiers=CLASSIFIERS
+    )
