@@ -1,11 +1,3 @@
-
-    def line_sampler(self, x1, y1, x2, y2):
-        alpha = random.uniform(0, 1)
-        xx = x1 + int(float(x2 - x1) * alpha)
-        yy = y1 + int(float(y2 - y1) * alpha)
-
-        return xx, yy
-
 import random
 import math
 import os
@@ -74,7 +66,7 @@ class SlideGenerator():
 
 
 class LineSlideGenerator(SlideGenerator):
-   def __init__(self, path, src_size, patch_size, fetch_mode='area', label_to_use=0,
+    def __init__(self, path, src_size, patch_size, fetch_mode='area', label_to_use=0,
                  rotation=True, flip=False, blur=0, he_augmentation=False, scale_augmentation=False,
                  color_matching=None,
                  dump_patch=None, verbose=1):
@@ -172,8 +164,6 @@ class LineSlideGenerator(SlideGenerator):
         os.makedirs(save_path, exist_ok=True)
 
         init_srcsize = 2 * srcsize
-
-        op = openslide.OpenSlide(openslide_path)
 
         #select patches with probability proportional to the line length
         selected = random.sample(range(total_len), k=numpatch)
@@ -432,7 +422,7 @@ class AreaSlideGenerator(SlideGenerator):
         for name in self.slide_names:
             try:
                 #modify
-                self.slides.append(OpenSlide_zarr(name))
+                self.slides.append(self.OpenSlide_zarr(name))
             except Exception as exc:
                 raise Exception('an error has occurred while reading slide "{}"'.format(name))
 
@@ -777,7 +767,7 @@ class AreaSlideGenerator(SlideGenerator):
         # cropping with rotation
         crop_size = int(src_size * 2**0.5 * max(abs(math.cos(angle)),
                                                      abs(math.sin(angle))))
-        cropped = np.asarray(read_region_zarr(self.slides[slide_id],
+        cropped = np.asarray(self.read_region_zarr(self.slides[slide_id],
                                                     (int(posx - crop_size/2),
                                                     int(posy - crop_size/2)),
                                                     (crop_size, crop_size), 0), dtype=np.float32)[:,:,:3]
@@ -869,7 +859,7 @@ class AreaSlideGenerator(SlideGenerator):
             # cropping with rotation
             crop_size = int(src_size * 2**0.5 * max(abs(math.cos(angle)),
                                                          abs(math.sin(angle))))
-            cropped = np.asarray(read_region_zarr(self.slides[slide_id],
+            cropped = np.asarray(self.read_region_zarr(self.slides[slide_id],
                                                         (int(posx - crop_size/2),
                                                         int(posy - crop_size/2)),
                                                         (crop_size, crop_size), 0), dtype=np.float32)[:,:,:3]
@@ -918,4 +908,10 @@ class AreaSlideGenerator(SlideGenerator):
             for i in range(batch_size):
                 image, label, _ = self.get_example(i)
                 images.append(image.transpose((1, 2, 0)))
-            images = np.asarray(images, 
+            images = np.asarray(images, dtype=np.float32)
+            labels = np.asarray(labels, dtype=np.float32)
+            if preprocess_input is not None:
+                yield preprocess_input(images), labels
+            else:
+                yield images, labels
+
