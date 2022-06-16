@@ -79,5 +79,5 @@ def main():
         for i in range(args.num_patch):
             gen.get_example(i)
 
-    
-main()   
+if __name__ == '__main__':
+   main() 

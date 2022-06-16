@@ -65,13 +65,4 @@ setup(name=NAME,
       maintainer_email=AUTHOR_EMAIL,
       description=DESCRIPTION,
       long_description=long_description,
-      license=LICENSE,
-      url=URL,
-      version=VERSION,
-      download_url=DOWNLOAD_URL,
-      python_requires=PYTHON_REQUIRES,
-      install_requires=INSTALL_REQUIRES,
-      extras_require=EXTRAS_REQUIRE,
-      packages=PACKAGES,
-      classifiers=CLASSIFIERS
-    )
+      license=
