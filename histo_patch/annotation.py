@@ -82,7 +82,3 @@ class NDPA(Annotation):
                     prev_y_pixels_from_topleft = y_pixels_from_topleft
                     #meningioma pattern 
 
-                else:
-                    annotations[idx][2].append((x_pixels_from_topleft,y_pixels_from_topleft))
-            #        if used_color is None or used_color != color.strip('#'):
-            #            continue

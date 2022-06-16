@@ -918,10 +918,4 @@ class AreaSlideGenerator(SlideGenerator):
             for i in range(batch_size):
                 image, label, _ = self.get_example(i)
                 images.append(image.transpose((1, 2, 0)))
-            images = np.asarray(images, dtype=np.float32)
-            labels = np.asarray(labels, dtype=np.float32)
-            if preprocess_input is not None:
-                yield preprocess_input(images), labels
-            else:
-                yield images, labels
-
+            images = np.asarray(images, 

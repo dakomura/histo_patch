@@ -54,6 +54,4 @@ def main():
                     dump_patch=outdir)
 
         for i in range(args.num_patch):
-            gen.get_example(i)
-    
-main()   
+            gen.get_exampl
