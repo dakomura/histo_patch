@@ -5,7 +5,7 @@
 from setuptools import setup
 import histo_patch
 
-DESCRIPTION = "histo-patch: image patch extraction from Whole Slide Images"
+DESCRIPTION = "histopatch: image patch extraction from Whole Slide Images"
 NAME = 'histo-patch'
 AUTHOR = 'Daisuke Komura'
 AUTHOR_EMAIL = 'kdais-prm@m.u-tokyo.ac.jp'
@@ -23,6 +23,7 @@ INSTALL_REQUIRES = [
     'opencv-python >= 4.6.0',
     'zarr >=2.11.3',
     'imagecodecs >=2022.2.22',
+    'click >=8.1.3',
 ]
 
 PACKAGES = [
@@ -61,5 +62,10 @@ setup(name=NAME,
       python_requires=PYTHON_REQUIRES,
       install_requires=INSTALL_REQUIRES,
       packages=PACKAGES,
-      classifiers=CLASSIFIERS
+      classifiers=CLASSIFIERS,
+      entry_points={
+          "console_scripts":[
+              "histopatch=histo_patch.histo_patch:main",
+          ]
+      },
     )
