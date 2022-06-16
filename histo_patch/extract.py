@@ -66,17 +66,17 @@ class SlideGenerator():
 
 
 class LineSlideGenerator(SlideGenerator):
-    def __init__(self, path, src_size, patch_size, fetch_mode='area', label_to_use=0,
+    def __init__(self, line_string, wsi_name, src_size, patch_size, fetch_mode='area', label_to_use=0,
                  rotation=True, flip=False, blur=0, he_augmentation=False, scale_augmentation=False,
                  color_matching=None,
                  dump_patch=None, verbose=1):
-        self.path = path
+        self.line_string = line_string
+        self.wsi_name = wsi_name
+        self.wsi = self.OpenSlide_zarr(self.wsi_name)
         self.src_size = src_size
         self.patch_size = patch_size
         self.fetch_mode = fetch_mode
         self.label_to_use = label_to_use
-        if self.fetch_mode not in OpenSlideGenerator.fetch_modes:
-            raise Exception('invalid fetch_mode %r' % self.fetch_mode)
         self.rotation = rotation
         self.flip = flip
         self.blur = blur
@@ -93,12 +93,6 @@ class LineSlideGenerator(SlideGenerator):
         self.slide_names = []
         self.labels = []          # labels[LABEL_CATEGORY][LABEL]
         self.label_of_region = []
-        self.structure = []
-        self.shifted_structure = []
-        self.triangulation = []
-        self.regions_of_label = [] # dict()
-        self.regions_of_label_slide = [] # dict()
-
         self.src_sizes = []
 
         self.total_weight = 0
@@ -115,31 +109,52 @@ class LineSlideGenerator(SlideGenerator):
         self.slide_areas = []  # total area of a slide
         self.label_areas = []  # total area of a label
 
-        self.total_triangles = 0
-        self.slide_triangles = []     # total triangle number for each slide
-        self.label_triangles = []     # total triangle number for each label
-        self.label_slide_triangles = [] # total triangule number for each label-slide pair
-
         self.serialized_index = []             # serialized_index[ID] -> (SLIDE_ID, REGION_ID, TRIANGLE_ID)
         self.serialized_index_slide = []       # serialized_index_slide[SLIDE_ID][ID] -> (REGION_ID, TRIANGLE_ID)
         self.serialized_index_label = []       # serialized_index_label[label][ID] -> (SLIDE_ID, REGION_ID, TRIANGLE_ID)
         self.serialized_index_label_slide = [] # *[label][SLIDE_ID][ID] -> (REGION_ID, TRIANGLE_ID)
 
-        # variables for Walker's alias method
-        self.a_area = []
-        self.p_area = []
-        self.a_slide = []
-        self.p_slide = []
-        self.a_label = []
-        self.p_label = []
-        self.a_label_slide = []
-        self.p_label_slide = []
-
-        # OpenSlide objects
+        # Slide objects
         self.slides = []
 
         # log
         self.fetch_count = [] # region-wise
+        
+        
+        self.pos_array = []
+
+        self.init_srcsize = 2 * self.src_size
+        #select patches with probability proportional to the line length
+        state = 0
+        left_points = 0
+        #tmp_pos_array = []
+        for line in map(lambda l: l.split("#")[0], line_string.split("\n")):
+            if len(line) == 0:
+                continue
+            is_wsi_line = (line[0] == "@")
+            if is_wsi_line:
+                self.total_len = int(line[1:])
+            else:
+                try:
+                    items = list(map(int, line.split()))
+                    
+                except Exception:
+                    raise Exception('invalid dataset file format!')
+
+            if state == 0:
+                if not is_wsi_line:
+                    raise Exception('invalid dataset file format!')
+                state = 1
+            elif state == 1:
+                _, label, left_points = items 
+                state = 2
+            elif state == 2:
+                self.pos_array.append(items)
+                left_points -= 1
+                if left_points == 0:
+                    state = 1
+        
+        self.selected = random.sample(range(self.total_len), k=1000)
 
     def line_sampler(self, x1, y1, x2, y2):
         alpha = random.uniform(0, 1)
@@ -148,84 +163,83 @@ class LineSlideGenerator(SlideGenerator):
 
         return xx, yy
 
+    def crop_center(self, img, crop_width, crop_height):
+        img_width, img_height, _ = img.shape
+        return img[(img_width - crop_width) // 2:(img_width + crop_width) // 2,
+                    (img_height - crop_height) // 2:(img_height + crop_height) // 2,:]
 
-    def crop_center(self, pil_img, crop_width, crop_height):
-        img_width, img_height = pil_img.size
-        return pil_img.crop(((img_width - crop_width) // 2,
-                            (img_height - crop_height) // 2,
-                            (img_width + crop_width) // 2,
-                            (img_height + crop_height) // 2))
+    def random_rotate(self, img):
+        center = (self.init_srcsize//2, self.init_srcsize//2)
+        angle = 360.0 * random.uniform(0, 1)
+        trans = cv2.getRotationMatrix2D(center, angle , 1.0)
+        patch = cv2.warpAffine(img, trans, (self.init_srcsize, self.init_srcsize))
+        return patch
 
 
-    def get_example(self, annotation, openslide_path, save_path, srcsize, patchsize, numpatch, total_len):
-        directory_path = os.path.dirname(openslide_path)
-        filename = os.path.splitext(os.path.basename(openslide_path))[0]
-        save_path = "{}/{}".format(save_path, filename)
-        os.makedirs(save_path, exist_ok=True)
-
-        init_srcsize = 2 * srcsize
-
-        #select patches with probability proportional to the line length
-        selected = random.sample(range(total_len), k=numpatch)
+    def get_example(self, i):
         current_len = 0
+        for k, pos in enumerate(self.pos_array):
+            x1, y1, x2, y2 = pos
 
-        for idx, annot_val in annotation.items():
-            pos_array = annot_val[1]
-            for k, pos in enumerate(pos_array):
-                assert isinstance(pos, tuple)
-                ((x1, y1), (x2, y2)) = pos
+            l = math.sqrt((x1-x2)**2 + (y1-y2)**2) #line length
+            if self.selected[i] >= current_len and self.selected[i] <= current_len + l:
+                xx, yy = self.line_sampler(x1, y1, x2, y2)
+                # extract patch
+                init_patch = self.read_region_zarr(
+                    self.wsi,
+                    (int(xx - self.init_srcsize / 2),
+                    int(yy - self.init_srcsize / 2)),
+                    (self.init_srcsize, self.init_srcsize), 0)
+                # random rotation
+                patch = self.random_rotate(init_patch)
+ 
+                patch = self.crop_center(patch, self.src_size, self.src_size)
+                patch = cv2.resize(patch, (self.patch_size, self.patch_size), cv2.INTER_CUBIC)
 
-                l = math.sqrt((x1-x2)**2 + (y1-y2)**2) #line length
-                n = len([x for x in selected if x >= current_len and x <= current_len + l])
+                if self.flip and random.randint(0, 1):
+                    patch = result[:, ::-1, :]
+                patch = patch.astype(np.float) / 255.0
+
+                # color matching
+                if self.use_color_matching:
+                    patch = self.match_color(patch.transpose(1,2,0)).transpose(2,0,1)
+
+                # blurring effect
+                if self.blur > 0:
+                    blur_size = random.randint(1, self.blur)
+                    patch = cv2.blur(patch.transpose(1,2,0), (blur_size, blur_size)).transpose((2,0,1))
+
+                if self.he_augmentation:
+                    hed = rgb2hed(np.clip(result.transpose(1,2,0), -1.0, 1.0))
+                    ah = 0.95 + random.random() * 0.1
+                    bh = -0.05 + random.random() * 0.1
+                    ae = 0.95 + random.random() * 0.1
+                    be = -0.05 + random.random() * 0.1
+                    hed[:,:,0] = ah * hed[:,:,0] + bh
+                    hed[:,:,1] = ae * hed[:,:,1] + be
+                    patch = hed2rgb(hed).transpose(2,0,1)
+                    patch = np.clip(patch, 0, 1.0).astype(np.float32)
+
+                if self.dump_patch is not None:
+                    os.makedirs(self.dump_patch, exist_ok=True)
+                    patch = Image.fromarray(np.uint8(result.transpose((1,2,0))*255))
+                    patch.save("{}/{}_{}_{}_{}_line.png".format(self.dump_patch, os.path.basename(self.dump_patch), idx, k, i))
+
+                return patch
+            else:
                 current_len += l
 
-                for i in range(n):
-                    xx, yy = line_sampler(x1, y1, x2, y2)
-                    # extract patch
-                    init_patch = op.read_region(
-                        (int(xx - init_srcsize / 2),
-                        int(yy - init_srcsize / 2)),
-                        0, (init_srcsize, init_srcsize))
-                    # random rotation
-                    patch = init_patch.rotate(random.randint(0, 360))
-                    patch = crop_center(patch, srcsize, srcsize).resize((patchsize, patchsize), Image.BICUBIC)
 
-                    patch = np.asarray(patch)
-                    if self.flip and random.randint(0, 1):
-                        patch = result[:, :, ::-1]
-                    patch *= (1.0 / 255.0)
 
-                    # color matching
-                    if self.use_color_matching:
-                        patch = self.match_color(patch.transpose(1,2,0)).transpose(2,0,1)
-
-                    # blurring effect
-                    if self.blur > 0:
-                        blur_size = random.randint(1, self.blur)
-                        patch = cv2.blur(patch.transpose(1,2,0), (blur_size, blur_size)).transpose((2,0,1))
-
-                    if self.he_augmentation:
-                        hed = rgb2hed(np.clip(result.transpose(1,2,0), -1.0, 1.0))
-                        ah = 0.95 + random.random() * 0.1
-                        bh = -0.05 + random.random() * 0.1
-                        ae = 0.95 + random.random() * 0.1
-                        be = -0.05 + random.random() * 0.1
-                        hed[:,:,0] = ah * hed[:,:,0] + bh
-                        hed[:,:,1] = ae * hed[:,:,1] + be
-                        patch = hed2rgb(hed).transpose(2,0,1)
-                        patch = np.clip(patch, 0, 1.0).astype(np.float32)
-
-                    patch = Image.fromarray(np.uint8(result.transpose((1,2,0))*255))
-                    patch.save("{}/{}_{}_{}_cyst.png".format(save_path, idx, k, i))
 
 class AreaSlideGenerator(SlideGenerator):
     fetch_modes = ['area', 'slide', 'label', 'label-slide']
 
-    def __init__(self, area_string, svs_name, src_size, patch_size, fetch_mode='area', label_to_use=0,
+    def __init__(self, area_string, wsi_name, src_size, patch_size, fetch_mode='area', label_to_use=0,
                  rotation=True, flip=False, blur=0, he_augmentation=False, scale_augmentation=False,
                  color_matching=None,
                  dump_patch=None, verbose=1):
-        self.svs_name = svs_name
+        self.wsi_name = wsi_name
         self.src_size = src_size
         self.patch_size = patch_size
         self.fetch_mode = fetch_mode
@@ -308,14 +322,14 @@ class AreaSlideGenerator(SlideGenerator):
         for line in map(lambda l: l.split("#")[0], area_string.split("\n")):
             if len(line) == 0:
                 continue
-            is_svs_line = (line[0] == "@")
-            if not is_svs_line:
+            is_wsi_line = (line[0] == "@")
+            if not is_wsi_line:
                 try:
                     items = list(map(int, line.split()))
                 except Exception:
                     raise Exception('invalid dataset file format!')
             if state == 0:
-                if not is_svs_line:
+                if not is_wsi_line:
                     raise Exception('invalid dataset file format!')
 
                 slide_id += 1
@@ -325,7 +339,7 @@ class AreaSlideGenerator(SlideGenerator):
                 else:
                     svs_src_size = self.src_size
 
-                self.slide_names.append(self.svs_name)
+                self.slide_names.append(self.wsi_name)
                 self.src_sizes.append(svs_src_size)
                 self.structure.append([])
                 label_buffer.append([])
@@ -372,7 +386,7 @@ class AreaSlideGenerator(SlideGenerator):
                     raise Exception('regions should consist of more than 3 points!')
                 state = 2
             elif state == 2:
-                if is_svs_line or len(items) != 2:
+                if is_wsi_line or len(items) != 2:
                     raise Exception('invalid dataset file format!')
                 self.structure[-1][-1].append((items[0], items[1]))
                 left_points -= 1
@@ -803,14 +817,13 @@ class AreaSlideGenerator(SlideGenerator):
             result = hed2rgb(hed).transpose(2,0,1)
             result = np.clip(result, 0, 1.0).astype(np.float32)
 
-        # debug
         if self.dump_patch is not None:
             from PIL import Image
             os.makedirs(self.dump_patch, exist_ok = True)
             im = Image.fromarray(np.uint8(result.transpose((1,2,0))*255))
-            im.save('%s/%d_%d-%d-%d.png' % (self.dump_patch, self.label_of_region[self.label_to_use][slide_id][region_id], slide_id, region_id, i))
+            im.save('%s/%s_%d_%d-%d-%d_area.png' % (self.dump_patch, os.path.basename(self.dump_patch), self.label_of_region[self.label_to_use][slide_id][region_id], slide_id, region_id, i))
 
-        return result, self.label_of_region[self.label_to_use][slide_id][region_id], (slide_id, region_id, posx, posy)
+        return result.transpose(1,2,0), self.label_of_region[self.label_to_use][slide_id][region_id], (slide_id, region_id, posx, posy)
 
     def get_examples_of_slide_label(self, slide_id, label, count):
         if len(self.regions_of_label_slide[self.label_to_use][label][slide_id]) == 0:
