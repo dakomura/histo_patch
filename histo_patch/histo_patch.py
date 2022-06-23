@@ -128,7 +128,6 @@ def main(
     # line annotation for cystic lesion
     if line_string is not None and annotation_shape != 'area':
         gen = LineSlideGenerator(line_string,
-                    annot.get_total_len(),
                     path_to_wsi, 
                     src_size, 
                     patch_size,  

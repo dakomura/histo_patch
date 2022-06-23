@@ -3,4 +3,4 @@ from .scanner import *
 from .utils import *
 from .extract import *
 
-__version__ = '0.1'
+__version__ = '0.93'

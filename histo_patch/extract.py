@@ -11,6 +11,7 @@ import pyclipper
 
 import tifffile as t
 import zarr
+from PIL import Image
 
 class SlideGenerator():
     def OpenSlide_zarr(self, wsifile):
@@ -18,7 +19,11 @@ class SlideGenerator():
 
     def read_region_zarr(self, obj, region, size, level=0):
         z = zarr.open(obj, mode='r')
-        return z[level][region[1]:(region[1]+size[1]),region[0]:(region[0]+size[0]),:]
+        if len(z[0].shape) == 3:
+            return z[level][region[1]:(region[1]+size[1]),region[0]:(region[0]+size[0]),:]
+        elif len(z[0].shape) == 4:
+            focus = int(z[0].shape[0] // 2)
+            return z[level][focus, region[1]:(region[1]+size[1]),region[0]:(region[0]+size[0]),:]
     
     # Neural color transfer by github.com/htoyryla, and github.com/ProGamerGov
     # https://github.com/ProGamerGov/Neural-Tools
@@ -210,7 +215,7 @@ class LineSlideGenerator(SlideGenerator):
                     patch = cv2.blur(patch.transpose(1,2,0), (blur_size, blur_size)).transpose((2,0,1))
 
                 if self.he_augmentation:
-                    hed = rgb2hed(np.clip(result.transpose(1,2,0), -1.0, 1.0))
+                    hed = rgb2hed(np.clip(patch.transpose(1,2,0), -1.0, 1.0))
                     ah = 0.95 + random.random() * 0.1
                     bh = -0.05 + random.random() * 0.1
                     ae = 0.95 + random.random() * 0.1
@@ -222,8 +227,8 @@ class LineSlideGenerator(SlideGenerator):
 
                 if self.dump_patch is not None:
                     os.makedirs(self.dump_patch, exist_ok=True)
-                    patch = Image.fromarray(np.uint8(result.transpose((1,2,0))*255))
-                    patch.save("{}/{}_{}_{}_{}_line.png".format(self.dump_patch, os.path.basename(self.dump_patch), idx, k, i))
+                    patch = Image.fromarray(np.uint8(patch*255))
+                    patch.save("{}/{}_{}_{}_line.png".format(self.dump_patch, os.path.basename(self.dump_patch), k, i))
 
                 return patch
             else:
@@ -459,7 +464,7 @@ class AreaSlideGenerator(SlideGenerator):
             self.slide_weights.append(0)
             self.slide_triangles.append(0)
             #modify
-            h, w, _ = zarr.open(self.slides[i], mode='r')[0].shape # slide width/height
+            h, w, _ = zarr.open(self.slides[i], mode='r')[0].shape[-3:] # slide width/height
 
             for label_cat in range(len(self.labels)):
                 for label in self.labels[label_cat]:
@@ -818,7 +823,6 @@ class AreaSlideGenerator(SlideGenerator):
             result = np.clip(result, 0, 1.0).astype(np.float32)
 
         if self.dump_patch is not None:
-            from PIL import Image
             os.makedirs(self.dump_patch, exist_ok = True)
             im = Image.fromarray(np.uint8(result.transpose((1,2,0))*255))
             im.save('%s/%s_%d_%d-%d-%d_area.png' % (self.dump_patch, os.path.basename(self.dump_patch), self.label_of_region[self.label_to_use][slide_id][region_id], slide_id, region_id, i))
