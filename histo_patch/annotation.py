@@ -49,7 +49,7 @@ class NDPA(Annotation):
         self.used_color = used_color
         self.OPEN_ANNOT = 'AnnotateFreehandLine'
         self.COLOR_CODE = {'#ffffff': 'white',
-                    '#000000': 'black',
+                    '#404040': 'black',
                     '#ff0000': 'red',
                     '#00ff00': 'green',
                     '#0000ff': 'blue',
