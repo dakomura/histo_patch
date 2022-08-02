@@ -87,7 +87,7 @@ def main(
     if color == "":
         used_color = None
     else:
-        used_color = [x.replace(" ","") for x in used_color.split(",")]
+        used_color = [x.replace(" ","") for x in color.split(",")]
         if annotation_type == 'ndpa':
             for c in used_color:
                 if not c in ['white','black','red','green','blue','magenta','cyan','yellow']:
