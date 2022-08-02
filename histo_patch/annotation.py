@@ -69,7 +69,7 @@ class NDPA(Annotation):
         for idx,ndpviewstate in enumerate(tree.iter('ndpviewstate')):
             annot_type = ndpviewstate.find('annotation').get('displayname')
             color = ndpviewstate.find('annotation').get('color')
-            if self.used_color is not None and not color in self.used_color:
+            if self.used_color is not None and not self.COLOR_CODE[color] in self.used_color:
                 continue
             self.annotations[idx]=(self.COLOR_CODE[color], annot_type, [])
 
