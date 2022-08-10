@@ -124,6 +124,8 @@ class QUPATH(Annotation):
 
         prev_x_pixels_from_topleft, prev_y_pixels_from_topleft = 0, 0
 
+        if type(data) == dict:
+            data = [data] # if there is only 1 annotation
         for idx, d in enumerate(data):
             annot_type = d["geometry"]['type']
             try:
