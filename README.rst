@@ -26,6 +26,7 @@ Usage
 histopatch [OPTIONS] PATH_TO_WSI PATH_TO_SAVE_DIRECTORY:
 
 Options
+
 -a, --annotation_type [ndpa|qupath] : File type of annotation (ndpa or qupath (GeoJSON (Pretty JSON)))
 
 -s, --annotation_shape [all|line|area] : Annotation shape (all, line, area)
