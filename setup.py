@@ -24,6 +24,7 @@ INSTALL_REQUIRES = [
     'zarr >=2.11.3',
     'imagecodecs >=2022.2.22',
     'click >=8.1.3',
+    'Pillow >=9.0.0',
 ]
 
 PACKAGES = [

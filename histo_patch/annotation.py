@@ -56,7 +56,13 @@ class NDPA(Annotation):
                     '#0000ff': 'blue',
                     '#ff00ff': 'magenta',
                     '#00ffff': 'cyan',
-                    '#ffff00': 'yellow'}
+                    '#ffff00': 'yellow',
+                    '#f2e736': 'yellow2',
+                    '#f5294f': 'red2',
+                    '#16c024': 'green2',
+                    '#ededed': 'gray2',
+                    '#357aff': 'blue2',
+                    }
 
     def read(self):
         tree = ET.parse(self.annotfile) 

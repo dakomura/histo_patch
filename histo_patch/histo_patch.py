@@ -90,7 +90,7 @@ def main(
         used_color = [x.replace(" ","") for x in color.split(",")]
         if annotation_type == 'ndpa':
             for c in used_color:
-                if not c in ['white','black','red','green','blue','magenta','cyan','yellow']:
+                if not c in ['white','black','red','green','blue','magenta','cyan','yellow','yellow2','red2','green2','gray2','blue2']:
                     raise Exception('invalid color name %r' % c)
         elif annotation_type == 'qupath': 
             for c in used_color:
